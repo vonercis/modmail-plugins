@@ -1,8 +1,17 @@
 from discord.ext import commands
 import discord
-from .views import FlightSelectionView
-from .handler import FlightDataHandler
-from .cog import FlightPlannerCog as FPC
+import sys
+import os
+
+# Add the plugin directory to the path
+plugin_dir = os.path.dirname(__file__)
+if plugin_dir not in sys.path:
+    sys.path.insert(0, plugin_dir)
+
+# Import other modules
+from views import FlightSelectionView
+from handler import FlightDataHandler
+from cog import FlightPlannerCog as FPC
 
 # Initialize handler
 flight_handler = FlightDataHandler()
