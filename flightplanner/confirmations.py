@@ -154,20 +154,20 @@ class FlightNumberConfirmationView(View):
             
             # Flight header
             embed.add_field(
-                name="<:QFtail2:1332608598697476117> FLIGHT CONFIRMATION",
+                name="<:QFtail2:1401856972180947035> FLIGHT CONFIRMATION",
                 value=f"**Flight {self.flight_number}** • {session['aircraft']}",
                 inline=False
             )
             
             # Route with emojis
             embed.add_field(
-                name="<:Departing:1332608696479985755> DEPARTURE",
+                name="<:Departing:1399308427267801138> DEPARTURE",
                 value=f"**{session['departure_code']}** {session['departure_name']}\n<t:{session['combined_timestamp']}:F>\n<t:{session['combined_timestamp']}:R>",
                 inline=True
             )
             
             embed.add_field(
-                name="<:Landing:1332608663948853268> ARRIVAL",
+                name="<:Landing:1399308429801029692> ARRIVAL",
                 value=f"**{session['arrival_code']}** {session['arrival_name']}",
                 inline=True
             )
@@ -177,18 +177,18 @@ class FlightNumberConfirmationView(View):
             
             # Flight details with custom emojis
             details = []
-            details.append(f"<:Australia:1332608632205324369> **Route:** {session['departure_code']} → {session['arrival_code']}")
-            details.append(f"<:QFseatbelt:1332608717912289300> **Aircraft:** {session['aircraft']}")
-            details.append(f"<:Announcment:1332608609308188715> **Status:** Confirmed")
+            details.append(f"<:Australia:1399308387866640508> **Route:** {session['departure_code']} → {session['arrival_code']}")
+            details.append(f"<:QFseatbelt:1401010857928032316> **Aircraft:** {session['aircraft']}")
+            details.append(f"<:Announcment:1399308384502808588> **Status:** Confirmed")
             
             embed.add_field(
-                name="<:External:1332608623225380877> FLIGHT INFORMATION",
+                name="<:External:1399308477897244705> FLIGHT INFORMATION",
                 value="\n".join(details),
                 inline=False
             )
             
             # Amenities
-            amenities = "<:QFwifi:1332608680264781845> Wi-Fi Available  •  <:QFmail:1332608586751680583> In-Flight Service  •  <:Link:1332608652257308692> Entertainment"
+            amenities = "<:QFwifi:1401010833831759922> Wi-Fi Available  •  <:QFmail:1399308493910966322> In-Flight Service  •  <:Link:1399308473342099507> Entertainment"
             embed.add_field(
                 name="✈️ AMENITIES & SERVICES",
                 value=amenities,
@@ -214,20 +214,20 @@ class FlightNumberConfirmationView(View):
             
             # Flight header
             embed.add_field(
-                name="<:JQtail:1332609144003530814> FLIGHT CONFIRMATION",
+                name="<:JQtail:1421704382608838776> FLIGHT CONFIRMATION",
                 value=f"**Flight {self.flight_number}** • {session['aircraft']}",
                 inline=False
             )
             
             # Route with emojis
             embed.add_field(
-                name="<:JQplane:1332609163943911444> DEPARTURE",
+                name="<:JQplane:1421703070907105280> DEPARTURE",
                 value=f"**{session['departure_code']}** {session['departure_name']}\n<t:{session['combined_timestamp']}:F>\n<t:{session['combined_timestamp']}:R>",
                 inline=True
             )
             
             embed.add_field(
-                name="<:JQtower:1332609199104839710> ARRIVAL",
+                name="<:JQtower:1421700708629086250> ARRIVAL",
                 value=f"**{session['arrival_code']}** {session['arrival_name']}",
                 inline=True
             )
@@ -237,18 +237,18 @@ class FlightNumberConfirmationView(View):
             
             # Flight details with custom emojis
             details = []
-            details.append(f"<:JQwhite:1332609216842653699> **Route:** {session['departure_code']} → {session['arrival_code']}")
-            details.append(f"<:JQplane:1332609163943911444> **Aircraft:** {session['aircraft']}")
-            details.append(f"<:JQcall:1332609180511551489> **Status:** Confirmed")
+            details.append(f"<:JQwhite:1421704746355527801> **Route:** {session['departure_code']} → {session['arrival_code']}")
+            details.append(f"<:JQplane:1421703070907105280> **Aircraft:** {session['aircraft']}")
+            details.append(f"<:JQcall:1421702400162402304> **Status:** Confirmed")
             
             embed.add_field(
-                name="<:JQwhite:1332609216842653699> FLIGHT INFORMATION",
+                name="<:JQwhite:1421704746355527801> FLIGHT INFORMATION",
                 value="\n".join(details),
                 inline=False
             )
             
             # Amenities
-            amenities = "<:JQmusic:1332609181849042965> In-Flight Entertainment  •  <:JQcall:1332609180511551489> Customer Service"
+            amenities = "<:JQmusic:1421701618377687050> In-Flight Entertainment  •  <:JQcall:1421702400162402304> Customer Service"
             embed.add_field(
                 name="✈️ SERVICES",
                 value=amenities,
