@@ -62,9 +62,8 @@ class FlightPlannerCog(commands.Cog):
             return
         
         # Search for airport information
-        await message.channel.trigger_typing()
-        
-        airport_info = await self.lookup_airport(iata_code)
+        async with message.channel.typing():
+            airport_info = await self.lookup_airport(iata_code)
         
         if not airport_info:
             embed = discord.Embed(
@@ -106,9 +105,8 @@ class FlightPlannerCog(commands.Cog):
             return
         
         # Search for airport information
-        await message.channel.trigger_typing()
-        
-        airport_info = await self.lookup_airport(iata_code)
+        async with message.channel.typing():
+            airport_info = await self.lookup_airport(iata_code)
         
         if not airport_info:
             embed = discord.Embed(
