@@ -31,7 +31,7 @@ class FlightPlannerCog(commands.Cog):
             return
         
         # Ignore messages that start with common command prefixes
-        if message.content.startswith(('.', '?', '!', '/', '
+        if message.content.startswith(('.', '?', '!', '/', '$')):
         
         # Handle based on current stage
         stage = session.get("stage")
