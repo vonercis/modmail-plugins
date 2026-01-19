@@ -6,7 +6,8 @@ from datetime import datetime
 from confirmations import (
     DepartureAirportConfirmationView,
     ArrivalAirportConfirmationView,
-    DepartureTimeConfirmationView
+    DepartureTimeConfirmationView,
+    DepartureDateConfirmationView
 )
 
 
@@ -47,6 +48,8 @@ class FlightPlannerCog(commands.Cog):
             await self.handle_arrival_iata(message, session)
         elif stage == "departure_time":
             await self.handle_departure_time(message, session)
+        elif stage == "departure_date":
+            await self.handle_departure_date(message, session)
     
     async def handle_departure_iata(self, message, session):
         """Handle departure IATA code input"""
@@ -68,6 +71,93 @@ class FlightPlannerCog(commands.Cog):
         if not airport_info:
             embed = discord.Embed(
                 description=f"❌ Could not find an airport with code **{iata_code}**. Please try again.",
+                color=discord.Color.red()
+            )
+            await message.channel.send(embed=embed)
+            return
+    
+    async def handle_departure_date(self, message, session):
+        """Handle departure date input"""
+        date_input = message.content.strip().lower()
+        
+        sydney_tz = pytz.timezone('Australia/Sydney')
+        current_sydney = datetime.now(sydney_tz)
+        
+        try:
+            date_obj = None
+            
+            # Handle "today" or "tomorrow"
+            if date_input == "today":
+                date_obj = current_sydney.date()
+            elif date_input == "tomorrow":
+                date_obj = (current_sydney + pytz.timezone('Australia/Sydney').localize(datetime.now()).replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0) - current_sydney.replace(tzinfo=None) + datetime.timedelta(days=1)).date()
+                # Simpler approach
+                from datetime import timedelta
+                date_obj = (current_sydney + timedelta(days=1)).date()
+            else:
+                # Try various date formats
+                # Format: DD/MM/YYYY or DD-MM-YYYY
+                for separator in ['/', '-', ' ']:
+                    if separator in date_input:
+                        parts = date_input.split(separator)
+                        if len(parts) == 3:
+                            try:
+                                day = int(parts[0])
+                                month = int(parts[1])
+                                year = int(parts[2])
+                                
+                                # Handle 2-digit years
+                                if year < 100:
+                                    year += 2000
+                                
+                                date_obj = datetime(year, month, day, tzinfo=sydney_tz).date()
+                                break
+                            except (ValueError, IndexError):
+                                continue
+                
+                # Format: DD Mon YYYY (e.g., 25 Jan 2026)
+                if not date_obj:
+                    try:
+                        date_obj = datetime.strptime(date_input.title(), "%d %b %Y").date()
+                    except ValueError:
+                        pass
+            
+            if not date_obj:
+                raise ValueError("Invalid date format")
+            
+            # Validate date is not in the past
+            if date_obj < current_sydney.date():
+                embed = discord.Embed(
+                    description="❌ The departure date cannot be in the past. Please enter a valid future date.",
+                    color=discord.Color.red()
+                )
+                await message.channel.send(embed=embed)
+                return
+            
+            # Get the saved time from session
+            time_obj = session.get("departure_time")
+            
+            # Combine date and time
+            combined_datetime = sydney_tz.localize(datetime.combine(
+                date_obj,
+                time_obj.time()
+            ))
+            combined_timestamp = int(combined_datetime.timestamp())
+            
+            # Show confirmation
+            embed = discord.Embed(
+                title="📅 Confirm Departure Date",
+                description=f"Is this the correct departure date and time?\n\n**Full Date & Time:** <t:{combined_timestamp}:F>\n**Relative:** <t:{combined_timestamp}:R>",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text="Confirm below")
+            
+            view = DepartureDateConfirmationView(message.author, self.flight_handler, date_obj, combined_timestamp)
+            await message.channel.send(embed=embed, view=view)
+            
+        except (ValueError, AttributeError) as e:
+            embed = discord.Embed(
+                description="❌ Invalid date format. Please enter date in one of these formats:\n• `25/01/2026` (DD/MM/YYYY)\n• `25-01-2026` (DD-MM-YYYY)\n• `25 Jan 2026`\n• `today` or `tomorrow`",
                 color=discord.Color.red()
             )
             await message.channel.send(embed=embed)
