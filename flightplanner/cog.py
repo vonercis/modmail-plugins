@@ -7,7 +7,8 @@ from confirmations import (
     DepartureAirportConfirmationView,
     ArrivalAirportConfirmationView,
     DepartureTimeConfirmationView,
-    DepartureDateConfirmationView
+    DepartureDateConfirmationView,
+    FlightNumberConfirmationView
 )
 
 
@@ -54,6 +55,8 @@ class FlightPlannerCog(commands.Cog):
             await self.handle_departure_time(message, session)
         elif stage == "departure_date":
             await self.handle_departure_date(message, session)
+        elif stage == "flight_number":
+            await self.handle_flight_number(message, session)
     
     async def handle_departure_iata(self, message, session):
         """Handle departure IATA code input"""
@@ -81,6 +84,30 @@ class FlightPlannerCog(commands.Cog):
             )
             await message.channel.send(embed=embed)
             return
+    
+    async def handle_flight_number(self, message, session):
+        """Handle flight number input"""
+        flight_number = message.content.strip().upper()
+        
+        # Basic validation - must have at least 2 characters and contain letters
+        if len(flight_number) < 2 or not any(c.isalpha() for c in flight_number):
+            embed = discord.Embed(
+                description="❌ Please enter a valid flight number (e.g., QF94, JQ30, VA803)",
+                color=discord.Color.red()
+            )
+            await message.channel.send(embed=embed, delete_after=10)
+            return
+        
+        # Show confirmation
+        embed = discord.Embed(
+            title="✈️ Confirm Flight Number",
+            description=f"Is this the correct flight number?\n\n**{flight_number}**",
+            color=discord.Color.blue()
+        )
+        embed.set_footer(text="Confirm below")
+        
+        view = FlightNumberConfirmationView(message.author, self.flight_handler, flight_number)
+        await message.channel.send(embed=embed, view=view)
         
         # Ask for confirmation
         embed = discord.Embed(
