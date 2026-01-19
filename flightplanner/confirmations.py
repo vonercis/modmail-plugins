@@ -42,11 +42,13 @@ class DepartureAirportConfirmationView(View):
 class SendConfirmationView(View):
     """View for confirming whether to send the flight plan"""
     
-    def __init__(self, author, handler, flight_embed):
+    def __init__(self, author, handler, flight_embed, airline, flight_number):
         super().__init__(timeout=60)
         self.author = author
         self.handler = handler
         self.flight_embed = flight_embed
+        self.airline = airline
+        self.flight_number = flight_number
     
     @button(label="Send Flight Plan", style=discord.ButtonStyle.green, emoji="📤")
     async def send_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -69,8 +71,9 @@ class SendConfirmationView(View):
             return
         
         try:
-            # Send the flight plan to the target channel
-            await target_channel.send(embed=self.flight_embed)
+            # Send the flight plan to the target channel WITH BUTTONS
+            flight_view = FlightPlanActionsView(self.airline, self.flight_number)
+            await target_channel.send(embed=self.flight_embed, view=flight_view)
             
             # Confirm to user
             success_embed = discord.Embed(
@@ -84,6 +87,240 @@ class SendConfirmationView(View):
         except Exception as e:
             await interaction.response.send_message(
                 f"❌ Failed to send flight plan: {str(e)}",
+                ephemeral=True
+            )
+        
+        # End the session
+        self.handler.end_session(self.author.id)
+        self.stop()
+
+
+class FlightPlanActionsView(View):
+    """Buttons that appear on the sent flight plan message"""
+    
+    def __init__(self, airline, flight_number):
+        super().__init__(timeout=None)  # Buttons never expire
+        self.airline = airline
+        self.flight_number = flight_number
+    
+    @button(label="Check-In Closed", style=discord.ButtonStyle.red, emoji="🔒", custom_id="checkin_closed")
+    async def checkin_closed_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Create professional check-in closed embed
+        if self.airline == "Qantas":
+            checkin_embed = discord.Embed(
+                title="",
+                description="",
+                color=0xE40000
+            )
+            checkin_embed.set_thumbnail(url="https://1000logos.net/wp-content/uploads/2017/05/Qantas-Logo-1536x966.png")
+            
+            checkin_embed.add_field(
+                name="<:QFtail2:1401856972180947035> CHECK-IN STATUS",
+                value=f"**Flight {self.flight_number}**",
+                inline=False
+            )
+            
+            checkin_embed.add_field(
+                name="",
+                value="━━━━━━━━━━━━━━━━━━━━━━",
+                inline=False
+            )
+            
+            checkin_embed.add_field(
+                name="<:QFseatbelt:1401010857928032316> CHECK-IN CLOSED",
+                value="Online check-in for this flight has now closed.\n\nPassengers are advised to proceed directly to the airport and complete check-in at the Qantas service counter.",
+                inline=False
+            )
+            
+            checkin_embed.add_field(
+                name="<:Announcment:1399308384502808588> IMPORTANT INFORMATION",
+                value="• Arrive at the airport at least **2 hours** before departure for domestic flights\n• Arrive at least **3 hours** before departure for international flights\n• Have your booking reference and identification ready",
+                inline=False
+            )
+            
+            checkin_embed.add_field(
+                name="<:External:1399308477897244705> NEED ASSISTANCE?",
+                value="Visit the Qantas service desk or contact our customer service team for support.",
+                inline=False
+            )
+            
+            checkin_embed.set_footer(
+                text="Qantas Airways • The Spirit of Australia",
+                icon_url="https://1000logos.net/wp-content/uploads/2017/05/Qantas-Logo-1536x966.png"
+            )
+            
+        else:  # Jetstar
+            checkin_embed = discord.Embed(
+                title="",
+                description="",
+                color=0xFF6600
+            )
+            checkin_embed.set_thumbnail(url="https://logos-world.net/wp-content/uploads/2023/01/Jetstar-Logo-2003.png")
+            
+            checkin_embed.add_field(
+                name="<:JQtail:1421704382608838776> CHECK-IN STATUS",
+                value=f"**Flight {self.flight_number}**",
+                inline=False
+            )
+            
+            checkin_embed.add_field(
+                name="",
+                value="━━━━━━━━━━━━━━━━━━━━━━",
+                inline=False
+            )
+            
+            checkin_embed.add_field(
+                name="<:JQplane:1421703070907105280> CHECK-IN CLOSED",
+                value="Online check-in for this flight has now closed.\n\nPassengers are advised to proceed directly to the airport and complete check-in at the Jetstar service counter.",
+                inline=False
+            )
+            
+            checkin_embed.add_field(
+                name="<:JQcall:1421702400162402304> IMPORTANT INFORMATION",
+                value="• Arrive at the airport at least **2 hours** before departure for domestic flights\n• Arrive at least **3 hours** before departure for international flights\n• Have your booking reference and identification ready",
+                inline=False
+            )
+            
+            checkin_embed.add_field(
+                name="<:JQtower:1421700708629086250> NEED ASSISTANCE?",
+                value="Visit the Jetstar service desk or contact our customer service team for support.",
+                inline=False
+            )
+            
+            checkin_embed.set_footer(
+                text="Jetstar Airways • All Day, Every Day, Low Fares",
+                icon_url="https://logos-world.net/wp-content/uploads/2023/01/Jetstar-Logo-2003.png"
+            )
+        
+        # Send check-in closed message
+        await interaction.channel.send(embed=checkin_embed)
+        
+        # Acknowledge the button click
+        await interaction.response.send_message("✅ Check-in closed message sent!", ephemeral=True)
+    
+    @button(label="Send Check-In Closed", style=discord.ButtonStyle.blurple, emoji="🔒")
+    async def checkin_closed_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            await interaction.response.send_message(
+                "This isn't your flight planning session!", 
+                ephemeral=True
+            )
+            return
+        
+        # Get the target channel
+        target_channel_id = 1400766110306926652
+        target_channel = interaction.client.get_channel(target_channel_id)
+        
+        if not target_channel:
+            await interaction.response.send_message(
+                "❌ Could not find the destination channel.",
+                ephemeral=True
+            )
+            return
+        
+        try:
+            # Create professional check-in closed embed
+            if self.airline == "Qantas":
+                checkin_embed = discord.Embed(
+                    title="",
+                    description="",
+                    color=0xE40000
+                )
+                checkin_embed.set_thumbnail(url="https://1000logos.net/wp-content/uploads/2017/05/Qantas-Logo-1536x966.png")
+                
+                checkin_embed.add_field(
+                    name="<:QFtail2:1401856972180947035> CHECK-IN STATUS",
+                    value=f"**Flight {self.flight_number}**",
+                    inline=False
+                )
+                
+                checkin_embed.add_field(
+                    name="",
+                    value="━━━━━━━━━━━━━━━━━━━━━━",
+                    inline=False
+                )
+                
+                checkin_embed.add_field(
+                    name="<:QFseatbelt:1401010857928032316> CHECK-IN CLOSED",
+                    value="Online check-in for this flight has now closed.\n\nPassengers are advised to proceed directly to the airport and complete check-in at the Qantas service counter.",
+                    inline=False
+                )
+                
+                checkin_embed.add_field(
+                    name="<:Announcment:1399308384502808588> IMPORTANT INFORMATION",
+                    value="• Arrive at the airport at least **2 hours** before departure for domestic flights\n• Arrive at least **3 hours** before departure for international flights\n• Have your booking reference and identification ready",
+                    inline=False
+                )
+                
+                checkin_embed.add_field(
+                    name="<:External:1399308477897244705> NEED ASSISTANCE?",
+                    value="Visit the Qantas service desk or contact our customer service team for support.",
+                    inline=False
+                )
+                
+                checkin_embed.set_footer(
+                    text="Qantas Airways • The Spirit of Australia",
+                    icon_url="https://1000logos.net/wp-content/uploads/2017/05/Qantas-Logo-1536x966.png"
+                )
+                
+            else:  # Jetstar
+                checkin_embed = discord.Embed(
+                    title="",
+                    description="",
+                    color=0xFF6600
+                )
+                checkin_embed.set_thumbnail(url="https://logos-world.net/wp-content/uploads/2023/01/Jetstar-Logo-2003.png")
+                
+                checkin_embed.add_field(
+                    name="<:JQtail:1421704382608838776> CHECK-IN STATUS",
+                    value=f"**Flight {self.flight_number}**",
+                    inline=False
+                )
+                
+                checkin_embed.add_field(
+                    name="",
+                    value="━━━━━━━━━━━━━━━━━━━━━━",
+                    inline=False
+                )
+                
+                checkin_embed.add_field(
+                    name="<:JQplane:1421703070907105280> CHECK-IN CLOSED",
+                    value="Online check-in for this flight has now closed.\n\nPassengers are advised to proceed directly to the airport and complete check-in at the Jetstar service counter.",
+                    inline=False
+                )
+                
+                checkin_embed.add_field(
+                    name="<:JQcall:1421702400162402304> IMPORTANT INFORMATION",
+                    value="• Arrive at the airport at least **2 hours** before departure for domestic flights\n• Arrive at least **3 hours** before departure for international flights\n• Have your booking reference and identification ready",
+                    inline=False
+                )
+                
+                checkin_embed.add_field(
+                    name="<:JQtower:1421700708629086250> NEED ASSISTANCE?",
+                    value="Visit the Jetstar service desk or contact our customer service team for support.",
+                    inline=False
+                )
+                
+                checkin_embed.set_footer(
+                    text="Jetstar Airways • All Day, Every Day, Low Fares",
+                    icon_url="https://logos-world.net/wp-content/uploads/2023/01/Jetstar-Logo-2003.png"
+                )
+            
+            # Send check-in closed message
+            await target_channel.send(embed=checkin_embed)
+            
+            # Confirm to user
+            success_embed = discord.Embed(
+                title="✅ Check-In Closed Message Sent!",
+                description=f"The check-in closed notification has been sent to <#{target_channel_id}>!",
+                color=discord.Color.green()
+            )
+            
+            await interaction.response.edit_message(embed=success_embed, view=None)
+            
+        except Exception as e:
+            await interaction.response.send_message(
+                f"❌ Failed to send message: {str(e)}",
                 ephemeral=True
             )
         
@@ -261,8 +498,8 @@ class FlightNumberConfirmationView(View):
                 icon_url="https://logos-world.net/wp-content/uploads/2023/01/Jetstar-Logo-2003.png"
             )
         
-        # Create buttons for sending confirmation
-        send_view = SendConfirmationView(self.author, self.handler, embed)
+        # Create buttons for sending confirmation AND check-in closed
+        send_view = SendConfirmationView(self.author, self.handler, embed, session["airline"], self.flight_number)
         
         await interaction.response.edit_message(embed=embed, view=send_view)
         
