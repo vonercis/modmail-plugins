@@ -11,13 +11,13 @@ if plugin_dir not in sys.path:
 # Import other modules
 from views import FlightSelectionView
 from handler import FlightDataHandler
-from cog import FlightPlannerCog as FPC
+from cog import FlightPlannerCog
 
 # Initialize handler
 flight_handler = FlightDataHandler()
 
 
-class FlightPlanner(commands.Cog):
+class FlightPlannerCommands(commands.Cog):
     """
     A plugin to help plan flights with Qantas or Jetstar.
     """
@@ -45,6 +45,6 @@ class FlightPlanner(commands.Cog):
 
 
 async def setup(bot):
-    # Register both the command cog and the listener cog
-    await bot.add_cog(FlightPlanner(bot))
-    await bot.add_cog(FPC(bot, flight_handler))
+    # Register both cogs with different names
+    await bot.add_cog(FlightPlannerCommands(bot))
+    await bot.add_cog(FlightPlannerCog(bot, flight_handler))
