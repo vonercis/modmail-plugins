@@ -39,6 +39,81 @@ class DepartureAirportConfirmationView(View):
         self.stop()
 
 
+class SendConfirmationView(View):
+    """View for confirming whether to send the flight plan"""
+    
+    def __init__(self, author, handler, flight_embed):
+        super().__init__(timeout=60)
+        self.author = author
+        self.handler = handler
+        self.flight_embed = flight_embed
+    
+    @button(label="Send Flight Plan", style=discord.ButtonStyle.green, emoji="📤")
+    async def send_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            await interaction.response.send_message(
+                "This isn't your flight planning session!", 
+                ephemeral=True
+            )
+            return
+        
+        # Get the target channel
+        target_channel_id = 1400766110306926652
+        target_channel = interaction.client.get_channel(target_channel_id)
+        
+        if not target_channel:
+            await interaction.response.send_message(
+                "❌ Could not find the destination channel.",
+                ephemeral=True
+            )
+            return
+        
+        try:
+            # Send the flight plan to the target channel
+            await target_channel.send(embed=self.flight_embed)
+            
+            # Confirm to user
+            success_embed = discord.Embed(
+                title="✅ Flight Plan Sent!",
+                description=f"Your flight plan has been successfully sent to <#{target_channel_id}>!",
+                color=discord.Color.green()
+            )
+            
+            await interaction.response.edit_message(embed=success_embed, view=None)
+            
+        except Exception as e:
+            await interaction.response.send_message(
+                f"❌ Failed to send flight plan: {str(e)}",
+                ephemeral=True
+            )
+        
+        # End the session
+        self.handler.end_session(self.author.id)
+        self.stop()
+    
+    @button(label="Don't Send", style=discord.ButtonStyle.red, emoji="❌")
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            await interaction.response.send_message(
+                "This isn't your flight planning session!", 
+                ephemeral=True
+            )
+            return
+        
+        # Cancel and end session
+        cancel_embed = discord.Embed(
+            title="❌ Flight Plan Cancelled",
+            description="Your flight plan was not sent. Session closed.",
+            color=discord.Color.red()
+        )
+        
+        await interaction.response.edit_message(embed=cancel_embed, view=None)
+        
+        # End the session
+        self.handler.end_session(self.author.id)
+        self.stop()
+
+
 class FlightNumberConfirmationView(View):
     """View for confirming the flight number"""
     
@@ -63,44 +138,135 @@ class FlightNumberConfirmationView(View):
         # Get session data
         session = self.handler.get_session(self.author.id)
         
-        # Create final summary
-        color = discord.Color.red() if session["airline"] == "Qantas" else discord.Color.green()
-        emoji = "🦘" if session["airline"] == "Qantas" else "⭐"
+        # Create stylish final summary
+        airline = session["airline"]
         
-        embed = discord.Embed(
-            title="✅ Flight Plan Complete!",
-            description="Your flight has been successfully planned!",
-            color=color
-        )
-        embed.add_field(name="Airline", value=f"{emoji} {session['airline']}", inline=True)
-        embed.add_field(name="Flight Number", value=f"✈️ {self.flight_number}", inline=True)
-        embed.add_field(name="Aircraft", value=f"🛩️ {session['aircraft']}", inline=True)
-        embed.add_field(
-            name="Route", 
-            value=f"🛫 {session['departure_code']} → 🛬 {session['arrival_code']}", 
-            inline=False
-        )
-        embed.add_field(
-            name="Departure", 
-            value=f"{session['departure_name']}", 
-            inline=False
-        )
-        embed.add_field(
-            name="Arrival", 
-            value=f"{session['arrival_name']}", 
-            inline=False
-        )
-        embed.add_field(
-            name="Departure Date & Time (Sydney)", 
-            value=f"<t:{session['combined_timestamp']}:F>\n<t:{session['combined_timestamp']}:R>", 
-            inline=False
-        )
-        embed.set_footer(text="Flight planning session completed")
+        if airline == "Qantas":
+            # Qantas modern embed
+            embed = discord.Embed(
+                title="",
+                description="",
+                color=0xE40000  # Qantas red
+            )
+            
+            # Set Qantas logo
+            embed.set_thumbnail(url="https://1000logos.net/wp-content/uploads/2017/05/Qantas-Logo-1536x966.png")
+            
+            # Flight header
+            embed.add_field(
+                name="<:QFtail2:1332608598697476117> FLIGHT CONFIRMATION",
+                value=f"**Flight {self.flight_number}** • {session['aircraft']}",
+                inline=False
+            )
+            
+            # Route with emojis
+            embed.add_field(
+                name="<:Departing:1332608696479985755> DEPARTURE",
+                value=f"**{session['departure_code']}** {session['departure_name']}\n<t:{session['combined_timestamp']}:F>\n<t:{session['combined_timestamp']}:R>",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="<:Landing:1332608663948853268> ARRIVAL",
+                value=f"**{session['arrival_code']}** {session['arrival_name']}",
+                inline=True
+            )
+            
+            # Spacer
+            embed.add_field(name="\u200b", value="\u200b", inline=False)
+            
+            # Flight details with custom emojis
+            details = []
+            details.append(f"<:Australia:1332608632205324369> **Route:** {session['departure_code']} → {session['arrival_code']}")
+            details.append(f"<:QFseatbelt:1332608717912289300> **Aircraft:** {session['aircraft']}")
+            details.append(f"<:Announcment:1332608609308188715> **Status:** Confirmed")
+            
+            embed.add_field(
+                name="<:External:1332608623225380877> FLIGHT INFORMATION",
+                value="\n".join(details),
+                inline=False
+            )
+            
+            # Amenities
+            amenities = "<:QFwifi:1332608680264781845> Wi-Fi Available  •  <:QFmail:1332608586751680583> In-Flight Service  •  <:Link:1332608652257308692> Entertainment"
+            embed.add_field(
+                name="✈️ AMENITIES & SERVICES",
+                value=amenities,
+                inline=False
+            )
+            
+            # Footer
+            embed.set_footer(
+                text="Qantas Airways • The Spirit of Australia",
+                icon_url="https://1000logos.net/wp-content/uploads/2017/05/Qantas-Logo-1536x966.png"
+            )
+            
+        else:
+            # Jetstar modern embed
+            embed = discord.Embed(
+                title="",
+                description="",
+                color=0xFF6600  # Jetstar orange
+            )
+            
+            # Set Jetstar logo
+            embed.set_thumbnail(url="https://logos-world.net/wp-content/uploads/2023/01/Jetstar-Logo-2003.png")
+            
+            # Flight header
+            embed.add_field(
+                name="<:JQtail:1332609144003530814> FLIGHT CONFIRMATION",
+                value=f"**Flight {self.flight_number}** • {session['aircraft']}",
+                inline=False
+            )
+            
+            # Route with emojis
+            embed.add_field(
+                name="<:JQplane:1332609163943911444> DEPARTURE",
+                value=f"**{session['departure_code']}** {session['departure_name']}\n<t:{session['combined_timestamp']}:F>\n<t:{session['combined_timestamp']}:R>",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="<:JQtower:1332609199104839710> ARRIVAL",
+                value=f"**{session['arrival_code']}** {session['arrival_name']}",
+                inline=True
+            )
+            
+            # Spacer
+            embed.add_field(name="\u200b", value="\u200b", inline=False)
+            
+            # Flight details with custom emojis
+            details = []
+            details.append(f"<:JQwhite:1332609216842653699> **Route:** {session['departure_code']} → {session['arrival_code']}")
+            details.append(f"<:JQplane:1332609163943911444> **Aircraft:** {session['aircraft']}")
+            details.append(f"<:JQcall:1332609180511551489> **Status:** Confirmed")
+            
+            embed.add_field(
+                name="<:JQwhite:1332609216842653699> FLIGHT INFORMATION",
+                value="\n".join(details),
+                inline=False
+            )
+            
+            # Amenities
+            amenities = "<:JQmusic:1332609181849042965> In-Flight Entertainment  •  <:JQcall:1332609180511551489> Customer Service"
+            embed.add_field(
+                name="✈️ SERVICES",
+                value=amenities,
+                inline=False
+            )
+            
+            # Footer
+            embed.set_footer(
+                text="Jetstar Airways • All Day, Every Day, Low Fares",
+                icon_url="https://logos-world.net/wp-content/uploads/2023/01/Jetstar-Logo-2003.png"
+            )
         
-        await interaction.response.edit_message(embed=embed, view=None)
+        # Create buttons for sending confirmation
+        send_view = SendConfirmationView(self.author, self.handler, embed)
         
-        # End the session
-        self.handler.end_session(self.author.id)
+        await interaction.response.edit_message(embed=embed, view=send_view)
+        
+        # Don't end session yet - wait for send confirmation
         self.stop()
     
     @button(label="No, Try Again", style=discord.ButtonStyle.red, emoji="❌")
