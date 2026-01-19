@@ -141,12 +141,7 @@ class FlightPlannerCog(commands.Cog):
             return
         
         # Search for airport information
-        try:
-            async with message.channel.typing():
-                airport_info = await self.lookup_airport(iata_code)
-        except Exception as e:
-            print(f"ERROR in typing context: {e}")
-            airport_info = await self.lookup_airport(iata_code)
+        airport_info = await self.lookup_airport(iata_code)
         
         if not airport_info:
             embed = discord.Embed(
