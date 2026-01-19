@@ -37,6 +37,106 @@ class DepartureAirportConfirmationView(View):
         
         await interaction.response.edit_message(embed=embed, view=None)
         self.stop()
+
+
+class FlightNumberConfirmationView(View):
+    """View for confirming the flight number"""
+    
+    def __init__(self, author, handler, flight_number):
+        super().__init__(timeout=60)
+        self.author = author
+        self.handler = handler
+        self.flight_number = flight_number
+    
+    @button(label="Yes, Correct", style=discord.ButtonStyle.green, emoji="✅")
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            await interaction.response.send_message(
+                "This isn't your flight planning session!", 
+                ephemeral=True
+            )
+            return
+        
+        # Save flight number
+        self.handler.update_session(self.author.id, "flight_number", self.flight_number)
+        
+        # Get session data
+        session = self.handler.get_session(self.author.id)
+        
+        # Create final summary
+        color = discord.Color.red() if session["airline"] == "Qantas" else discord.Color.green()
+        emoji = "🦘" if session["airline"] == "Qantas" else "⭐"
+        
+        embed = discord.Embed(
+            title="✅ Flight Plan Complete!",
+            description="Your flight has been successfully planned!",
+            color=color
+        )
+        embed.add_field(name="Airline", value=f"{emoji} {session['airline']}", inline=True)
+        embed.add_field(name="Flight Number", value=f"✈️ {self.flight_number}", inline=True)
+        embed.add_field(name="Aircraft", value=f"🛩️ {session['aircraft']}", inline=True)
+        embed.add_field(
+            name="Route", 
+            value=f"🛫 {session['departure_code']} → 🛬 {session['arrival_code']}", 
+            inline=False
+        )
+        embed.add_field(
+            name="Departure", 
+            value=f"{session['departure_name']}", 
+            inline=False
+        )
+        embed.add_field(
+            name="Arrival", 
+            value=f"{session['arrival_name']}", 
+            inline=False
+        )
+        embed.add_field(
+            name="Departure Date & Time (Sydney)", 
+            value=f"<t:{session['combined_timestamp']}:F>\n<t:{session['combined_timestamp']}:R>", 
+            inline=False
+        )
+        embed.set_footer(text="Flight planning session completed")
+        
+        await interaction.response.edit_message(embed=embed, view=None)
+        
+        # End the session
+        self.handler.end_session(self.author.id)
+        self.stop()
+    
+    @button(label="No, Try Again", style=discord.ButtonStyle.red, emoji="❌")
+    async def retry_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            await interaction.response.send_message(
+                "This isn't your flight planning session!", 
+                ephemeral=True
+            )
+            return
+        
+        # Get airline from session
+        session = self.handler.get_session(self.author.id)
+        airline = session.get("airline", "")
+        
+        # Determine airline prefix
+        prefix_hint = ""
+        if airline == "Qantas":
+            prefix_hint = "\n\n**Hint:** Qantas flights start with `QF` (e.g., QF94)"
+        elif airline == "Jetstar":
+            prefix_hint = "\n\n**Hint:** Jetstar flights start with `JQ` (e.g., JQ30)"
+        
+        embed = discord.Embed(
+            title="✈️ Flight Number",
+            description=f"Please enter your flight number.{prefix_hint}",
+            color=discord.Color.blue()
+        )
+        embed.add_field(
+            name="Examples",
+            value="• `QF94`\n• `JQ30`\n• `VA803`",
+            inline=False
+        )
+        embed.set_footer(text="Type the flight number in chat")
+        
+        await interaction.response.edit_message(embed=embed, view=None)
+        self.stop()
     
     @button(label="No, Try Again", style=discord.ButtonStyle.red, emoji="❌")
     async def retry_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -185,51 +285,35 @@ class DepartureDateConfirmationView(View):
             )
             return
         
-        # Save departure date
+        # Save departure date and move to flight number
         self.handler.update_session(self.author.id, "departure_date", self.date_obj)
         self.handler.update_session(self.author.id, "combined_timestamp", self.combined_timestamp)
+        self.handler.update_session(self.author.id, "stage", "flight_number")
         
-        # Get session data
+        # Get airline from session
         session = self.handler.get_session(self.author.id)
+        airline = session.get("airline", "")
         
-        # Create final summary
-        color = discord.Color.red() if session["airline"] == "Qantas" else discord.Color.green()
-        emoji = "🦘" if session["airline"] == "Qantas" else "⭐"
+        # Determine airline prefix
+        prefix_hint = ""
+        if airline == "Qantas":
+            prefix_hint = "\n\n**Hint:** Qantas flights start with `QF` (e.g., QF94)"
+        elif airline == "Jetstar":
+            prefix_hint = "\n\n**Hint:** Jetstar flights start with `JQ` (e.g., JQ30)"
         
         embed = discord.Embed(
-            title="✅ Flight Plan Complete!",
-            description="Your flight has been successfully planned!",
-            color=color
-        )
-        embed.add_field(name="Airline", value=f"{emoji} {session['airline']}", inline=True)
-        embed.add_field(name="Aircraft", value=f"✈️ {session['aircraft']}", inline=True)
-        embed.add_field(name="‎", value="‎", inline=True)  # Spacer
-        embed.add_field(
-            name="Route", 
-            value=f"🛫 {session['departure_code']} → 🛬 {session['arrival_code']}", 
-            inline=False
+            title="✈️ Flight Number",
+            description=f"Please enter your flight number.{prefix_hint}",
+            color=discord.Color.blue()
         )
         embed.add_field(
-            name="Departure", 
-            value=f"{session['departure_name']}", 
+            name="Examples",
+            value="• `QF94`\n• `JQ30`\n• `VA803`",
             inline=False
         )
-        embed.add_field(
-            name="Arrival", 
-            value=f"{session['arrival_name']}", 
-            inline=False
-        )
-        embed.add_field(
-            name="Departure Date & Time (Sydney)", 
-            value=f"<t:{self.combined_timestamp}:F>\n<t:{self.combined_timestamp}:R>", 
-            inline=False
-        )
-        embed.set_footer(text="Flight planning session completed")
+        embed.set_footer(text="Type the flight number in chat")
         
         await interaction.response.edit_message(embed=embed, view=None)
-        
-        # End the session
-        self.handler.end_session(self.author.id)
         self.stop()
     
     @button(label="No, Try Again", style=discord.ButtonStyle.red, emoji="❌")
