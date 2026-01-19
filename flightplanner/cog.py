@@ -323,24 +323,10 @@ class FlightPlannerCog(commands.Cog):
     
     async def lookup_airport(self, iata_code):
         """Look up airport information by IATA code"""
+        print(f"DEBUG: Starting lookup for {iata_code}")
+        
         try:
-            # Use AirLabs API (free tier available)
-            url = f"https://airlabs.co/api/v9/airports?iata_code={iata_code}&api_key=demo"
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=10) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        if data.get('response') and len(data['response']) > 0:
-                            airport = data['response'][0]
-                            return {
-                                'code': iata_code,
-                                'name': airport.get('name', 'Unknown Airport'),
-                                'city': airport.get('city', ''),
-                                'country': airport.get('country_code', '')
-                            }
-            
-            # Fallback: Use a basic hardcoded list for common airports
+            # Fallback: Use hardcoded list for common airports
             common_airports = {
                 'SYD': {'name': 'Sydney Kingsford Smith International Airport', 'city': 'Sydney', 'country': 'Australia'},
                 'MEL': {'name': 'Melbourne Airport', 'city': 'Melbourne', 'country': 'Australia'},
@@ -366,17 +352,44 @@ class FlightPlannerCog(commands.Cog):
                 'WLG': {'name': 'Wellington Airport', 'city': 'Wellington', 'country': 'New Zealand'},
             }
             
+            print(f"DEBUG: Checking hardcoded list for {iata_code}")
+            
             if iata_code in common_airports:
                 airport_data = common_airports[iata_code]
-                return {
+                result = {
                     'code': iata_code,
                     'name': airport_data['name'],
                     'city': airport_data['city'],
                     'country': airport_data['country']
                 }
+                print(f"DEBUG: Found in hardcoded list: {result}")
+                return result
             
+            print(f"DEBUG: Not found in hardcoded list, trying API")
+            
+            # Try API as backup
+            url = f"https://airlabs.co/api/v9/airports?iata_code={iata_code}&api_key=demo"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=5) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if data.get('response') and len(data['response']) > 0:
+                            airport = data['response'][0]
+                            result = {
+                                'code': iata_code,
+                                'name': airport.get('name', 'Unknown Airport'),
+                                'city': airport.get('city', ''),
+                                'country': airport.get('country_code', '')
+                            }
+                            print(f"DEBUG: Found via API: {result}")
+                            return result
+            
+            print(f"DEBUG: Airport not found anywhere")
             return None
             
         except Exception as e:
-            print(f"Error looking up airport: {e}")
+            print(f"ERROR in lookup_airport: {e}")
+            import traceback
+            traceback.print_exc()
             return None
