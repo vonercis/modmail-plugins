@@ -3,7 +3,7 @@ import discord
 import aiohttp
 import pytz
 from datetime import datetime
-from .confirmations import (
+from confirmations import (
     DepartureAirportConfirmationView,
     ArrivalAirportConfirmationView,
     DepartureTimeConfirmationView
