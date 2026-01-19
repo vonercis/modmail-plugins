@@ -141,9 +141,53 @@ class DepartureTimeConfirmationView(View):
             )
             return
         
-        # Save departure time
+        # Save departure time and move to date selection
         self.handler.update_session(self.author.id, "departure_time", self.time_obj)
         self.handler.update_session(self.author.id, "departure_timestamp", self.timestamp)
+        self.handler.update_session(self.author.id, "stage", "departure_date")
+        
+        # Get current Sydney time for reference
+        sydney_tz = pytz.timezone('Australia/Sydney')
+        current_sydney = datetime.now(sydney_tz)
+        
+        embed = discord.Embed(
+            title="📅 Departure Date",
+            description="Please enter your departure date.\n\n**Current date:** " + current_sydney.strftime("%d/%m/%Y"),
+            color=discord.Color.blue()
+        )
+        embed.add_field(
+            name="Accepted Formats",
+            value="• `25/01/2026` (DD/MM/YYYY)\n• `25-01-2026` (DD-MM-YYYY)\n• `25 Jan 2026`\n• `today` or `tomorrow`",
+            inline=False
+        )
+        embed.set_footer(text="Type the departure date in chat")
+        
+        await interaction.response.edit_message(embed=embed, view=None)
+        self.stop()
+
+
+class DepartureDateConfirmationView(View):
+    """View for confirming the departure date"""
+    
+    def __init__(self, author, handler, date_obj, combined_timestamp):
+        super().__init__(timeout=60)
+        self.author = author
+        self.handler = handler
+        self.date_obj = date_obj
+        self.combined_timestamp = combined_timestamp
+    
+    @button(label="Yes, Correct", style=discord.ButtonStyle.green, emoji="✅")
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            await interaction.response.send_message(
+                "This isn't your flight planning session!", 
+                ephemeral=True
+            )
+            return
+        
+        # Save departure date
+        self.handler.update_session(self.author.id, "departure_date", self.date_obj)
+        self.handler.update_session(self.author.id, "combined_timestamp", self.combined_timestamp)
         
         # Get session data
         session = self.handler.get_session(self.author.id)
@@ -176,8 +220,8 @@ class DepartureTimeConfirmationView(View):
             inline=False
         )
         embed.add_field(
-            name="Departure Time (Sydney)", 
-            value=f"<t:{self.timestamp}:F>\n<t:{self.timestamp}:R>", 
+            name="Departure Date & Time (Sydney)", 
+            value=f"<t:{self.combined_timestamp}:F>\n<t:{self.combined_timestamp}:R>", 
             inline=False
         )
         embed.set_footer(text="Flight planning session completed")
@@ -186,6 +230,34 @@ class DepartureTimeConfirmationView(View):
         
         # End the session
         self.handler.end_session(self.author.id)
+        self.stop()
+    
+    @button(label="No, Try Again", style=discord.ButtonStyle.red, emoji="❌")
+    async def retry_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            await interaction.response.send_message(
+                "This isn't your flight planning session!", 
+                ephemeral=True
+            )
+            return
+        
+        # Get current Sydney time for reference
+        sydney_tz = pytz.timezone('Australia/Sydney')
+        current_sydney = datetime.now(sydney_tz)
+        
+        embed = discord.Embed(
+            title="📅 Departure Date",
+            description="Please enter your departure date.\n\n**Current date:** " + current_sydney.strftime("%d/%m/%Y"),
+            color=discord.Color.blue()
+        )
+        embed.add_field(
+            name="Accepted Formats",
+            value="• `25/01/2026` (DD/MM/YYYY)\n• `25-01-2026` (DD-MM-YYYY)\n• `25 Jan 2026`\n• `today` or `tomorrow`",
+            inline=False
+        )
+        embed.set_footer(text="Type the departure date in chat")
+        
+        await interaction.response.edit_message(embed=embed, view=None)
         self.stop()
     
     @button(label="No, Try Again", style=discord.ButtonStyle.red, emoji="❌")
