@@ -13,7 +13,6 @@ from discord.ext import commands
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime
 import random
-import aiohttp
 from typing import Optional
 
 
@@ -92,20 +91,26 @@ class QantasFrequentFlyer(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db = None
-        self._setup_database()
+        self.bot.loop.create_task(self._setup_database())
     
-    def _setup_database(self):
+    async def _setup_database(self):
         """Initialize MongoDB connection"""
+        # Wait for bot to be ready
+        await self.bot.wait_until_ready()
+        
         # Use the bot's existing MongoDB connection
         if hasattr(self.bot, 'db'):
-            self.db = self.bot.db
+            self.db = self.bot.db.db  # Get the actual database object
+            self.bot.logger.info("Qantas FF: Using bot's MongoDB connection")
         else:
-            # Fallback to creating a new connection
-            mongo_uri = self.bot.config.get('qantas_mongo_uri', 
-                                           self.bot.config.get('connection_uri'))
+            # Fallback: create own connection
+            mongo_uri = self.bot.config.get('qantas_mongo_uri') or self.bot.config.get('connection_uri')
             if mongo_uri:
                 client = AsyncIOMotorClient(mongo_uri)
                 self.db = client.modmail_qantas
+                self.bot.logger.info("Qantas FF: Created separate MongoDB connection")
+            else:
+                self.bot.logger.error("Qantas FF: No MongoDB connection available!")
     
     @staticmethod
     def generate_membership_number():
@@ -160,7 +165,7 @@ class QantasFrequentFlyer(commands.Cog):
                     'total_required': tier['credits_required']
                 }
         
-        return None  # Already at highest tier
+        return None
     
     def get_tier_color(self, tier_name: str) -> int:
         """Get the color for a specific tier"""
@@ -211,7 +216,7 @@ class QantasFrequentFlyer(commands.Cog):
         """
         Sign up for the Qantas Frequent Flyer program
         
-        Usage:
+        **Usage:**
             {prefix}qff signup John Smith john@example.com
         """
         # Check if user already exists
@@ -262,20 +267,21 @@ class QantasFrequentFlyer(commands.Cog):
                 value='Earn 300 Status Credits to unlock Silver tier and oneworld Ruby status!',
                 inline=False
             )
-            embed.set_footer(text='Use ?qff status to check your account anytime')
+            embed.set_footer(text=f'Use {ctx.prefix}qff status to check your account anytime')
             embed.timestamp = datetime.utcnow()
             
             await ctx.send(embed=embed)
             
         except Exception as e:
-            await ctx.send(f'❌ An error occurred during signup: {str(e)}')
+            self.bot.logger.error(f"Qantas FF signup error: {e}")
+            await ctx.send(f'❌ An error occurred during signup. Please try again.')
     
     @qff.command(name='status', aliases=['info', 'profile'])
     async def qff_status(self, ctx, member: Optional[discord.Member] = None):
         """
         Check your Qantas Frequent Flyer status
         
-        Usage:
+        **Usage:**
             {prefix}qff status
             {prefix}qff status @user
         """
@@ -283,7 +289,7 @@ class QantasFrequentFlyer(commands.Cog):
         member_data = await self.get_member(target.id)
         
         if not member_data:
-            return await ctx.send('❌ You are not registered. Use `?qff signup` to join!')
+            return await ctx.send(f'❌ {"You are" if not member else f"{member.mention} is"} not registered. Use `{ctx.prefix}qff signup` to join!')
         
         tier_color = self.get_tier_color(member_data['current_tier'])
         benefits = self.get_tier_benefits(member_data['current_tier'])
@@ -361,23 +367,23 @@ class QantasFrequentFlyer(commands.Cog):
         
         await ctx.send(embed=embed)
     
-    @qff.command(name='link-roblox', aliases=['linkroblox', 'roblox'])
+    @qff.command(name='link', aliases=['linkroblox', 'roblox'])
     async def qff_link_roblox(self, ctx, roblox_id: str):
         """
         Link your Roblox account
         
-        Usage:
-            {prefix}qff link-roblox 123456789
+        **Usage:**
+            {prefix}qff link 123456789
         """
         member_data = await self.get_member(ctx.author.id)
         
         if not member_data:
-            return await ctx.send('❌ You are not registered. Use `?qff signup` to join first!')
+            return await ctx.send(f'❌ You are not registered. Use `{ctx.prefix}qff signup` to join first!')
         
         await self.update_member(ctx.author.id, {'roblox_id': roblox_id})
         await ctx.send(f'✅ Successfully linked Roblox ID: {roblox_id} to your account!')
     
-    @qff.command(name='add-flight', aliases=['addflight', 'flight'])
+    @qff.command(name='addflight', aliases=['flight'])
     @commands.has_permissions(administrator=True)
     async def qff_add_flight(
         self, ctx,
@@ -392,10 +398,10 @@ class QantasFrequentFlyer(commands.Cog):
         """
         Add a flight to a member's account (Admin only)
         
-        Usage:
-            {prefix}qff add-flight @user QF7 SYD LAX 140 12840 Business
+        **Usage:**
+            {prefix}qff addflight @user QF7 SYD LAX 140 12840 Business
         
-        Cabin classes: Economy, Premium Economy, Business, First
+        **Cabin classes:** Economy, Premium Economy, Business, First
         """
         valid_cabins = ['Economy', 'Premium Economy', 'Business', 'First']
         if cabin not in valid_cabins:
@@ -494,13 +500,13 @@ class QantasFrequentFlyer(commands.Cog):
         """
         View your flight history
         
-        Usage:
+        **Usage:**
             {prefix}qff flights
         """
         member_data = await self.get_member(ctx.author.id)
         
         if not member_data:
-            return await ctx.send('❌ You are not registered. Use `?qff signup` to join!')
+            return await ctx.send(f'❌ You are not registered. Use `{ctx.prefix}qff signup` to join!')
         
         flights = member_data.get('flights', [])
         
@@ -537,7 +543,7 @@ class QantasFrequentFlyer(commands.Cog):
         """
         View the frequent flyer leaderboard
         
-        Usage:
+        **Usage:**
             {prefix}qff leaderboard
             {prefix}qff leaderboard points
         """
