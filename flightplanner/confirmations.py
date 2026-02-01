@@ -71,18 +71,20 @@ class SendConfirmationView(View):
             return
         
         try:
-            # Send the flight plan to the target channel WITH BUTTONS
-            flight_view = FlightPlanActionsView(self.airline, self.flight_number)
-            await target_channel.send(embed=self.flight_embed, view=flight_view)
+            # Send the flight plan to the target channel WITHOUT BUTTONS
+            await target_channel.send(embed=self.flight_embed)
             
-            # Confirm to user
+            # Confirm to user WITH BUTTON
             success_embed = discord.Embed(
                 title="✅ Flight Plan Sent!",
                 description=f"Your flight plan has been successfully sent to <#{target_channel_id}>!",
                 color=discord.Color.green()
             )
             
-            await interaction.response.edit_message(embed=success_embed, view=None)
+            # Create view with check-in closed button
+            success_view = CheckInClosedButtonView(self.airline, self.flight_number, target_channel_id)
+            
+            await interaction.response.edit_message(embed=success_embed, view=success_view)
             
         except Exception as e:
             await interaction.response.send_message(
@@ -90,8 +92,7 @@ class SendConfirmationView(View):
                 ephemeral=True
             )
         
-        # End the session
-        self.handler.end_session(self.author.id)
+        # Don't end session yet - button is still active
         self.stop()
 
 
