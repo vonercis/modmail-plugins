@@ -13,7 +13,10 @@ from discord.ext import commands
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime
 import random
+import logging
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class QantasFrequentFlyer(commands.Cog):
@@ -101,16 +104,16 @@ class QantasFrequentFlyer(commands.Cog):
         # Use the bot's existing MongoDB connection
         if hasattr(self.bot, 'db'):
             self.db = self.bot.db.db  # Get the actual database object
-            self.bot.logger.info("Qantas FF: Using bot's MongoDB connection")
+            logger.info("Qantas FF: Using bot's MongoDB connection")
         else:
             # Fallback: create own connection
             mongo_uri = self.bot.config.get('qantas_mongo_uri') or self.bot.config.get('connection_uri')
             if mongo_uri:
                 client = AsyncIOMotorClient(mongo_uri)
                 self.db = client.modmail_qantas
-                self.bot.logger.info("Qantas FF: Created separate MongoDB connection")
+                logger.info("Qantas FF: Created separate MongoDB connection")
             else:
-                self.bot.logger.error("Qantas FF: No MongoDB connection available!")
+                logger.error("Qantas FF: No MongoDB connection available!")
     
     @staticmethod
     def generate_membership_number():
@@ -183,13 +186,13 @@ class QantasFrequentFlyer(commands.Cog):
     
     async def get_member(self, discord_id: str) -> Optional[dict]:
         """Retrieve a member from the database"""
-        if not self.db:
+        if self.db is None:
             return None
         return await self.db.frequent_flyers.find_one({'discord_id': str(discord_id)})
     
     async def create_member(self, member_data: dict) -> dict:
         """Create a new frequent flyer member"""
-        if not self.db:
+        if self.db is None:
             raise Exception("Database not initialized")
         
         await self.db.frequent_flyers.insert_one(member_data)
@@ -197,7 +200,7 @@ class QantasFrequentFlyer(commands.Cog):
     
     async def update_member(self, discord_id: str, update_data: dict):
         """Update a member's data"""
-        if not self.db:
+        if self.db is None:
             raise Exception("Database not initialized")
         
         update_data['updated_at'] = datetime.utcnow()
@@ -273,7 +276,7 @@ class QantasFrequentFlyer(commands.Cog):
             await ctx.send(embed=embed)
             
         except Exception as e:
-            self.bot.logger.error(f"Qantas FF signup error: {e}")
+            logger.error(f"Qantas FF signup error: {e}")
             await ctx.send(f'❌ An error occurred during signup. Please try again.')
     
     @qff.command(name='status', aliases=['info', 'profile'])
@@ -547,7 +550,7 @@ class QantasFrequentFlyer(commands.Cog):
             {prefix}qff leaderboard
             {prefix}qff leaderboard points
         """
-        if not self.db:
+        if self.db is None:
             return await ctx.send('❌ Database not available')
         
         valid_sorts = ['credits', 'points']
